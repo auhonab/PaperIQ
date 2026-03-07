@@ -293,12 +293,16 @@ const styles = `
 export default function ElifPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { pdfBase64, fileName, imageBase64, incrementElifAnalysis, user } = usePaperIQ();
+  const { pdfBase64, fileName, imageBase64, incrementElifAnalysis, user,
+    elifResults, setElifResults, elifLevel, setElifLevel,
+    elifResultsCache, cacheElifResults } = usePaperIQ();
 
-  const [level, setLevel] = useState('undergrad');
+  const level = elifLevel;
+  const setLevel = setElifLevel;
+  const results = elifResults;
+  const setResults = setElifResults;
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [results, setResults] = useState(null);
   const [openGlossaryIndex, setOpenGlossaryIndex] = useState(null);
 
   const handleAnalyze = async (targetLevel) => {
@@ -322,7 +326,8 @@ export default function ElifPage() {
       }
 
       setResults(data);
-      incrementElifAnalysis(); // Track successful analysis
+      cacheElifResults(fileName, data, targetLevel);
+      incrementElifAnalysis();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -330,12 +335,30 @@ export default function ElifPage() {
     }
   };
 
-  // Auto-start analysis when navigating from upload page
+  // Load from cache or auto-start analysis
   useEffect(() => {
     const autostart = searchParams.get('autostart');
     const audience = searchParams.get('audience');
-    
-    if (autostart === 'true' && pdfBase64) {
+    const viewPaper = searchParams.get('paper');
+
+    // Viewing a specific paper from dashboard — load its cached results
+    if (viewPaper && elifResultsCache?.[viewPaper]) {
+      const cached = elifResultsCache[viewPaper];
+      setResults(cached.results);
+      setLevel(cached.level || 'undergrad');
+      return;
+    }
+
+    // Current file has cached results — restore them without re-analysing
+    if (fileName && elifResultsCache?.[fileName] && !elifResults) {
+      const cached = elifResultsCache[fileName];
+      setResults(cached.results);
+      setLevel(cached.level || 'undergrad');
+      return;
+    }
+
+    // Only auto-analyze if no cached results exist
+    if (autostart === 'true' && pdfBase64 && !elifResults) {
       const targetLevel = audience || level;
       handleAnalyze(targetLevel);
     }

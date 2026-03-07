@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, BookOpen, Eye, MessageSquare, TrendingUp, Clock, Upload, User, BarChart2, Zap, Settings } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { FileText, BookOpen, Eye, MessageSquare, TrendingUp, Clock, Upload, User, BarChart2, Zap, Settings, LogOut } from 'lucide-react';
 import { usePaperIQ } from '../layout';
 import Link from 'next/link';
 
@@ -115,6 +116,28 @@ const styles = `
   .db-field-label { font-size: 11px; color: #00ffe0; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
   .db-field-value { font-size: 14px; color: #e0e0e0; margin-bottom: 14px; }
 
+  .db-logout-btn {
+    width: 100%;
+    margin-top: 16px;
+    padding: 10px 16px;
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 8px;
+    color: #ef4444;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.2s;
+  }
+  .db-logout-btn:hover {
+    background: rgba(239,68,68,0.15);
+  }
+
   .db-connection-row {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 12px;
@@ -153,7 +176,6 @@ const styles = `
   }
   .db-paper-btn:hover { background: rgba(0,255,224,0.15); }
 
-  /* RECENT PAPERS */
   .db-paper-row {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.07);
@@ -161,6 +183,7 @@ const styles = `
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 10px;
     transition: border-color 0.2s;
+    cursor: pointer;
   }
   .db-paper-row:hover { border-color: rgba(0,255,224,0.2); }
   .db-paper-row-left { display: flex; align-items: center; gap: 12px; }
@@ -171,6 +194,22 @@ const styles = `
     background: rgba(0,255,224,0.1);
     font-size: 12px; color: #00ffe0; font-weight: 600;
   }
+  .db-status-badge.analyzed {
+    background: rgba(168,85,247,0.12);
+    color: #a855f7;
+    border: 1px solid rgba(168,85,247,0.25);
+  }
+  .db-row-right { display: flex; align-items: center; gap: 10px; }
+  .db-delete-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px;
+    background: rgba(239,68,68,0.07);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 7px; cursor: pointer;
+    color: #ef4444; transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .db-delete-btn:hover { background: rgba(239,68,68,0.18); }
 
   /* LAUNCH SECTION */
   .db-launch {
@@ -213,18 +252,30 @@ const styles = `
 `;
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { 
     pdfBase64, 
     fileName, 
     uploadedPapers,
+    uploadedImages,
     elifAnalysisCount,
     scholarSightCount,
     chatMessageCount,
-    user
+    user,
+    logout,
+    deletePaper,
+    deleteImage,
+    elifResultsCache,
+    scholarSightCache,
   } = usePaperIQ();
   
   const username = user?.name || 'researcher';
   const userEmail = user?.email || 'researcher@university.edu';
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
 
   // Calculate real stats
   const totalInsights = elifAnalysisCount + scholarSightCount + chatMessageCount;
@@ -305,6 +356,10 @@ export default function DashboardPage() {
                   <div className="db-field-value">{username}</div>
                   <div className="db-field-label">Email Address</div>
                   <div className="db-field-value" style={{ color: '#9ca3af' }}>{userEmail}</div>
+                  <button className="db-logout-btn" onClick={handleLogout}>
+                    <LogOut size={14} />
+                    Logout
+                  </button>
                 </div>
               </div>
 
@@ -377,7 +432,11 @@ export default function DashboardPage() {
               </div>
             ) : (
               uploadedPapers.slice(0, 5).map(paper => (
-                <div key={paper.id} className="db-paper-row">
+                <div
+                  key={paper.id}
+                  className="db-paper-row"
+                  onClick={() => router.push(`/elif?paper=${encodeURIComponent(paper.name)}`)}
+                >
                   <div className="db-paper-row-left">
                     <FileText size={16} color="#6b7280" />
                     <div>
@@ -385,7 +444,70 @@ export default function DashboardPage() {
                       <div className="date">{formatDate(paper.date)}</div>
                     </div>
                   </div>
-                  <span className="db-status-badge">Uploaded</span>
+                  <div className="db-row-right">
+                    {elifResultsCache?.[paper.name]
+                      ? <span className="db-status-badge analyzed">Analyzed</span>
+                      : <span className="db-status-badge">Uploaded</span>
+                    }
+                    <button
+                      className="db-delete-btn"
+                      title="Delete paper"
+                      onClick={e => { e.stopPropagation(); if (confirm(`Delete "${paper.name}"?`)) deletePaper(paper.id); }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* RECENT IMAGES */}
+          <div className="db-section">
+            <div className="db-section-header">
+              <div className="db-section-title">
+                <div className="db-section-icon"><Eye size={17} color="#ff4da6" /></div>
+                Recent Images
+              </div>
+            </div>
+            {uploadedImages.length === 0 ? (
+              <div style={{
+                padding: '32px',
+                textAlign: 'center',
+                color: '#6b7280',
+                fontSize: '14px',
+                background: 'rgba(255,255,255,0.02)',
+                borderRadius: '12px'
+              }}>
+                No images uploaded yet. Upload an image in ScholarSight to visualize charts or diagrams.
+              </div>
+            ) : (
+              uploadedImages.slice(0, 5).map(image => (
+                <div
+                  key={image.id}
+                  className="db-paper-row"
+                  onClick={() => router.push(`/scholarsight?image=${encodeURIComponent(image.name)}`)}
+                >
+                  <div className="db-paper-row-left">
+                    <Eye size={16} color="#9ca3af" />
+                    <div>
+                      <div className="name">{image.name}</div>
+                      <div className="date">{formatDate(image.date)}</div>
+                    </div>
+                  </div>
+                  <div className="db-row-right">
+                    {scholarSightCache?.[image.name]
+                      ? <span className="db-status-badge analyzed">Analyzed</span>
+                      : <span className="db-status-badge" style={{ color: '#ff4da6', background: 'rgba(255,77,166,0.1)' }}>Uploaded</span>
+                    }
+                    <button
+                      className="db-delete-btn"
+                      title="Delete image"
+                      onClick={e => { e.stopPropagation(); if (confirm(`Delete "${image.name}"?`)) deleteImage(image.id); }}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               ))
             )}

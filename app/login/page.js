@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
 import { usePaperIQ } from '../layout';
@@ -158,6 +158,16 @@ const styles = `
   }
   .login-error p { font-size: 13px; color: #ef4444; }
 
+  /* INFO MESSAGE */
+  .login-info {
+    background: rgba(0,255,224,0.08);
+    border: 1px solid rgba(0,255,224,0.25);
+    border-radius: 10px; padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px;
+  }
+  .login-info p { font-size: 13px; color: #00ffe0; }
+
   /* SUBMIT */
   .login-submit {
     width: 100%; padding: 14px;
@@ -204,6 +214,20 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [infoMessage, setInfoMessage] = useState('');
+
+  // Check for messages from URL params
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const message = params.get('message');
+      if (message === 'already_registered') {
+        setInfoMessage('You are already registered. Please login with your credentials.');
+        // Clear the URL parameter
+        window.history.replaceState({}, '', '/login');
+      }
+    }
+  }, []);
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -232,7 +256,7 @@ export default function LoginPage() {
         throw new Error(data.error || 'Login failed');
       }
 
-      // Set user data in context
+      // Set user data in context (this will automatically fetch papers)
       setUser(data.user);
       setIsAuthenticated(true);
       
@@ -343,6 +367,14 @@ export default function LoginPage() {
                   </div>
                   <span>Remember me for 30 days</span>
                 </label>
+
+                {/* Info Message */}
+                {infoMessage && (
+                  <div className="login-info">
+                    <AlertCircle size={16} color="#00ffe0" />
+                    <p>{infoMessage}</p>
+                  </div>
+                )}
 
                 {/* Error */}
                 {error && (

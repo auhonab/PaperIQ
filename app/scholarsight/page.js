@@ -338,15 +338,19 @@ const styles = `
 export default function ScholarSightPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { pdfBase64, fileName, imageBase64: contextImageBase64, imageMimeType: contextImageMimeType, imagePreviewUrl: contextImagePreviewUrl, setImageData, incrementScholarSight, user } = usePaperIQ();
+  const { pdfBase64, fileName, imageBase64: contextImageBase64, imageMimeType: contextImageMimeType, imagePreviewUrl: contextImagePreviewUrl, setImageData, incrementScholarSight, user,
+    scholarSightResults, setScholarSightResults,
+    imageFileName: contextImageFileName, scholarSightCache, cacheScholarSightResults } = usePaperIQ();
 
+  const results = scholarSightResults;
+  const setResults = setScholarSightResults;
   const [imageBase64, setImageBase64] = useState(contextImageBase64);
   const [imageMimeType, setImageMimeType] = useState(contextImageMimeType);
   const [imagePreviewUrl, setImagePreviewUrl] = useState(contextImagePreviewUrl);
+  const [localImageName, setLocalImageName] = useState(contextImageFileName);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [results, setResults] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -361,12 +365,27 @@ export default function ScholarSightPage() {
       setImageBase64(contextImageBase64);
       setImageMimeType(contextImageMimeType);
       setImagePreviewUrl(contextImagePreviewUrl);
+      setLocalImageName(contextImageFileName);
     }
-  }, [contextImageBase64, contextImageMimeType, contextImagePreviewUrl]);
+  }, [contextImageBase64, contextImageMimeType, contextImagePreviewUrl, contextImageFileName]);
 
-  // Auto-analyze when navigating from upload page with autostart
+  // Auto-analyze when navigating from upload page with autostart, or load cache
   useEffect(() => {
     const autostart = searchParams.get('autostart');
+    const viewImage = searchParams.get('image');
+
+    // Viewing a specific image from dashboard — load cached results
+    if (viewImage && scholarSightCache?.[viewImage]) {
+      setResults(scholarSightCache[viewImage]);
+      return;
+    }
+
+    // Current image has cached results — restore without re-analyzing
+    if (contextImageFileName && scholarSightCache?.[contextImageFileName] && !results) {
+      setResults(scholarSightCache[contextImageFileName]);
+      return;
+    }
+
     if (autostart === 'true' && imageBase64 && !results && !isLoading) {
       handleAnalyze();
     }
@@ -396,9 +415,10 @@ export default function ScholarSightPage() {
         setImagePreviewUrl(previewUrl);
         setImageBase64(base64);
         setImageMimeType(mimeType);
+        setLocalImageName(file.name);
         
-        // Also update context
-        setImageData(base64, mimeType, previewUrl);
+        // Also update context (with name)
+        setImageData(base64, mimeType, previewUrl, file.name);
       };
       reader.readAsDataURL(file);
     }
@@ -429,7 +449,8 @@ export default function ScholarSightPage() {
       }
 
       setResults(data);
-      incrementScholarSight(); // Track successful analysis
+      cacheScholarSightResults(localImageName, data);
+      incrementScholarSight();
     } catch (err) {
       setError(err.message);
     } finally {

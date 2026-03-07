@@ -268,9 +268,11 @@ const SUGGESTED = [
 
 export default function ChatPage() {
   const router = useRouter();
-  const { pdfBase64, fileName, imageBase64, imageMimeType, incrementChatMessage, user } = usePaperIQ();
+  const { pdfBase64, fileName, imageBase64, imageMimeType, incrementChatMessage, user,
+    chatMessages, setChatMessages } = usePaperIQ();
 
-  const [messages, setMessages] = useState([]);
+  const messages = chatMessages;
+  const setMessages = setChatMessages;
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);

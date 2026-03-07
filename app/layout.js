@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import './globals.css';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -32,25 +32,287 @@ export default function RootLayout({ children }) {
     const [scholarSightCount, setScholarSightCount] = useState(0);
     const [chatMessageCount, setChatMessageCount] = useState(0);
 
+    // Cached analysis results (persist across page navigation)
+    const [elifResults, setElifResults] = useState(null);
+    const [elifLevel, setElifLevel] = useState('undergrad');
+    const [scholarSightResults, setScholarSightResults] = useState(null);
+    const [chatMessages, setChatMessages] = useState([]);
+
+    // Per-file analysis caches (persisted to localStorage)
+    const [elifResultsCache, setElifResultsCache] = useState({});
+    const [scholarSightCache, setScholarSightCache] = useState({});
+
+    // Image tracking
+    const [uploadedImages, setUploadedImages] = useState([]);
+    const [imageFileName, setImageFileName] = useState(null);
+    
+    // Restore session from localStorage on mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const savedUser = localStorage.getItem('paperiq_user');
+            if (savedUser) {
+                try {
+                    const userData = JSON.parse(savedUser);
+                    setUser(userData);
+                    setIsAuthenticated(true);
+                    
+                    // Fetch user's papers from MongoDB
+                    fetch(`/api/papers?userId=${userData.id}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success && data.papers) {
+                                const formattedPapers = data.papers.map(p => ({
+                                    id: String(p.id),
+                                    mongoId: String(p.id),
+                                    name: p.fileName,
+                                    date: p.uploadedAt
+                                }));
+                                setUploadedPapers(formattedPapers);
+                                localStorage.setItem('paperiq_papers', JSON.stringify(formattedPapers));
+                            }
+                        })
+                        .catch(err => console.error('Failed to fetch papers:', err));
+                } catch (e) {
+                    console.error('Failed to restore session:', e);
+                    localStorage.removeItem('paperiq_user');
+                }
+            } else {
+                // No user logged in, restore papers from localStorage  
+                const savedPapers = localStorage.getItem('paperiq_papers');
+                if (savedPapers) {
+                    try {
+                        setUploadedPapers(JSON.parse(savedPapers));
+                    } catch (e) {
+                        localStorage.removeItem('paperiq_papers');
+                    }
+                }
+            }
+
+            // Restore uploaded images (not user-specific)
+            const savedImages = localStorage.getItem('paperiq_images');
+            if (savedImages) {
+                try { setUploadedImages(JSON.parse(savedImages)); } catch (e) { localStorage.removeItem('paperiq_images'); }
+            }
+
+            // Restore per-file analysis caches
+            const savedElifCache = localStorage.getItem('paperiq_elif_cache');
+            if (savedElifCache) {
+                try { setElifResultsCache(JSON.parse(savedElifCache)); } catch (e) { localStorage.removeItem('paperiq_elif_cache'); }
+            }
+            const savedScholarCache = localStorage.getItem('paperiq_scholar_cache');
+            if (savedScholarCache) {
+                try { setScholarSightCache(JSON.parse(savedScholarCache)); } catch (e) { localStorage.removeItem('paperiq_scholar_cache'); }
+            }
+        }
+    }, []);
+    
+    // Function to fetch user's papers from MongoDB
+    const fetchUserPapers = async (userId) => {
+        if (!userId) return;
+        try {
+            const res = await fetch(`/api/papers?userId=${userId}`);
+            const data = await res.json();
+            if (data.success && data.papers) {
+                const formattedPapers = data.papers.map(p => ({
+                    id: String(p.id),
+                    mongoId: String(p.id),
+                    name: p.fileName,
+                    date: p.uploadedAt
+                }));
+                setUploadedPapers(formattedPapers);
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('paperiq_papers', JSON.stringify(formattedPapers));
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch papers:', err);
+        }
+    };
+    
+    // Custom setUser that saves to localStorage
+    const setUserWithPersistence = (userData) => {
+        setUser(userData);
+        if (typeof window !== 'undefined') {
+            if (userData) {
+                localStorage.setItem('paperiq_user', JSON.stringify(userData));
+                // Fetch user's papers when user is set
+                fetchUserPapers(userData.id);
+            } else {
+                localStorage.removeItem('paperiq_user');
+            }
+        }
+    };
+    
+    // Custom setIsAuthenticated that syncs with user data
+    const setIsAuthenticatedWithPersistence = (isAuth) => {
+        setIsAuthenticated(isAuth);
+        if (!isAuth && typeof window !== 'undefined') {
+            localStorage.removeItem('paperiq_user');
+            setUser(null);
+        }
+    };
+    
+    // Logout function
+    const logout = () => {
+        setUser(null);
+        setIsAuthenticated(false);
+        setUploadedPapers([]);
+        setUploadedImages([]);
+        setElifResultsCache({});
+        setScholarSightCache({});
+        setElifResults(null);
+        setScholarSightResults(null);
+        setChatMessages([]);
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('paperiq_user');
+            localStorage.removeItem('paperiq_papers');
+            localStorage.removeItem('paperiq_images');
+            localStorage.removeItem('paperiq_elif_cache');
+            localStorage.removeItem('paperiq_scholar_cache');
+        }
+    };
+
+    // Cache ELIF results per filename
+    const cacheElifResults = (name, results, level) => {
+        if (!name) return;
+        setElifResultsCache(prev => {
+            const updated = { ...prev, [name]: { results, level } };
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('paperiq_elif_cache', JSON.stringify(updated));
+            }
+            return updated;
+        });
+    };
+
+    // Cache ScholarSight results per image name
+    const cacheScholarSightResults = (name, results) => {
+        if (!name) return;
+        setScholarSightCache(prev => {
+            const updated = { ...prev, [name]: results };
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('paperiq_scholar_cache', JSON.stringify(updated));
+            }
+            return updated;
+        });
+    };
+
+    // Delete a paper (local + MongoDB)
+    const deletePaper = (paperId) => {
+        setUploadedPapers(prev => {
+            const paper = prev.find(p => p.id === paperId);
+            const updated = prev.filter(p => p.id !== paperId);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('paperiq_papers', JSON.stringify(updated));
+            }
+            // Clear ELIF cache for this paper
+            if (paper) {
+                setElifResultsCache(prevCache => {
+                    const updatedCache = { ...prevCache };
+                    delete updatedCache[paper.name];
+                    if (typeof window !== 'undefined') {
+                        localStorage.setItem('paperiq_elif_cache', JSON.stringify(updatedCache));
+                    }
+                    return updatedCache;
+                });
+                // Delete from MongoDB if we have a mongoId
+                if (paper.mongoId) {
+                    fetch(`/api/papers?paperId=${paper.mongoId}`, { method: 'DELETE' })
+                        .catch(err => console.error('Failed to delete from MongoDB:', err));
+                }
+            }
+            return updated;
+        });
+    };
+
+    // Delete an image (local only)
+    const deleteImage = (imageId) => {
+        setUploadedImages(prev => {
+            const image = prev.find(i => i.id === imageId);
+            const updated = prev.filter(i => i.id !== imageId);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('paperiq_images', JSON.stringify(updated));
+            }
+            if (image) {
+                setScholarSightCache(prevCache => {
+                    const updatedCache = { ...prevCache };
+                    delete updatedCache[image.name];
+                    if (typeof window !== 'undefined') {
+                        localStorage.setItem('paperiq_scholar_cache', JSON.stringify(updatedCache));
+                    }
+                    return updatedCache;
+                });
+            }
+            return updated;
+        });
+    };
+
     const setPdfData = (base64, name) => {
         setPdfBase64(base64);
         setFileName(name);
         
+        // Clear cached results when a new PDF is loaded
+        if (base64 && name) {
+            setElifResults(null);
+            setChatMessages([]);
+        }
+        
         // Track uploaded paper if it's a new one
         if (base64 && name && !uploadedPapers.some(p => p.name === name)) {
-            const newPaper = {
-                name,
-                date: new Date().toISOString(),
-                id: Date.now(),
-            };
-            setUploadedPapers(prev => [newPaper, ...prev.slice(0, 9)]); // Keep last 10
+            const localId = Date.now();
+            const newPaper = { name, date: new Date().toISOString(), id: localId, mongoId: null };
+            const updatedPapers = [newPaper, ...uploadedPapers.slice(0, 9)];
+            setUploadedPapers(updatedPapers);
+
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('paperiq_papers', JSON.stringify(updatedPapers));
+
+                if (user && user.id) {
+                    const fileSize = Math.round((base64.length * 3) / 4);
+                    fetch('/api/papers', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: user.id, fileName: name, fileSize })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.paper) {
+                            // Replace local entry with MongoDB ID
+                            setUploadedPapers(prev => {
+                                const updated = prev.map(p =>
+                                    p.id === localId
+                                        ? { ...p, id: String(data.paper.id), mongoId: String(data.paper.id) }
+                                        : p
+                                );
+                                localStorage.setItem('paperiq_papers', JSON.stringify(updated));
+                                return updated;
+                            });
+                        }
+                    })
+                    .catch(err => console.error('Failed to save paper to database:', err));
+                }
+            }
         }
     };
     
-    const setImageData = (base64, mimeType, previewUrl) => {
+    const setImageData = (base64, mimeType, previewUrl, name) => {
         setImageBase64(base64);
         setImageMimeType(mimeType);
         setImagePreviewUrl(previewUrl);
+        setImageFileName(name || null);
+        // Clear active ScholarSight result when a new image is loaded
+        if (base64) setScholarSightResults(null);
+        // Track in uploadedImages list
+        if (base64 && name) {
+            setUploadedImages(prev => {
+                if (prev.some(i => i.name === name)) return prev;
+                const newImage = { id: Date.now(), name, date: new Date().toISOString(), mimeType };
+                const updated = [newImage, ...prev.slice(0, 9)];
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('paperiq_images', JSON.stringify(updated));
+                }
+                return updated;
+            });
+        }
     };
 
     const incrementElifAnalysis = () => setElifAnalysisCount(prev => prev + 1);
@@ -69,14 +331,22 @@ export default function RootLayout({ children }) {
             <body>
                 <PaperIQContext.Provider value={{ 
                     pdfBase64, fileName, setPdfData, 
-                    isAuthenticated, setIsAuthenticated,
-                    user, setUser,
+                    isAuthenticated, setIsAuthenticated: setIsAuthenticatedWithPersistence,
+                    user, setUser: setUserWithPersistence,
+                    logout,
                     currentPaperId, setCurrentPaperId,
                     imageBase64, imageMimeType, imagePreviewUrl, setImageData,
                     uploadedPapers, setUploadedPapers,
                     elifAnalysisCount, incrementElifAnalysis,
                     scholarSightCount, incrementScholarSight,
-                    chatMessageCount, incrementChatMessage
+                    chatMessageCount, incrementChatMessage,
+                    elifResults, setElifResults, elifLevel, setElifLevel,
+                    scholarSightResults, setScholarSightResults,
+                    chatMessages, setChatMessages,
+                    elifResultsCache, cacheElifResults,
+                    scholarSightCache, cacheScholarSightResults,
+                    uploadedImages, imageFileName,
+                    deletePaper, deleteImage,
                 }}>
                     <div className="content-wrapper min-h-screen flex flex-col">
 

@@ -131,10 +131,16 @@ export default function RegisterPage() {
       const data = await res.json();
 
       if (!res.ok) {
+        // Check if user is already registered
+        if (data.error && (data.error.includes('already registered') || data.error.includes('Email already'))) {
+          // Redirect to login with message
+          router.push('/login?message=already_registered');
+          return;
+        }
         throw new Error(data.error || 'Registration failed');
       }
 
-      // Set user data in context
+      // Set user data in context (this will automatically fetch papers)
       setUser(data.user);
       setIsAuthenticated(true);
       

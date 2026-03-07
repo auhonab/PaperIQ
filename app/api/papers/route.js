@@ -79,6 +79,23 @@ export async function GET(req) {
   }
 }
 
+// Delete a paper
+export async function DELETE(req) {
+  try {
+    await dbConnect();
+    const { searchParams } = new URL(req.url);
+    const paperId = searchParams.get('paperId');
+    if (!paperId) {
+      return NextResponse.json({ error: 'Paper ID required' }, { status: 400 });
+    }
+    await Paper.findByIdAndDelete(paperId);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Delete paper error:', error);
+    return NextResponse.json({ error: 'Failed to delete paper' }, { status: 500 });
+  }
+}
+
 // Update paper analysis counts
 export async function PATCH(req) {
   try {

@@ -273,7 +273,7 @@ const styles = `
 
 export default function UploadPage() {
   const router = useRouter();
-  const { pdfBase64, fileName, setPdfData, imageBase64, imageMimeType, imagePreviewUrl, setImageData } = usePaperIQ();
+  const { pdfBase64, fileName, setPdfData, imageBase64, imageMimeType, imagePreviewUrl, setImageData, user } = usePaperIQ();
   const [fileSize, setFileSize] = useState(null);
   const [imageName, setImageName] = useState(null);
   const [imageSize, setImageSize] = useState(null);
@@ -312,7 +312,7 @@ export default function UploadPage() {
       reader.onloadend = () => {
         const previewUrl = reader.result;
         const base64String = reader.result.split(',')[1];
-        setImageData(base64String, file.type, previewUrl);
+        setImageData(base64String, file.type, previewUrl, file.name);
       };
       reader.readAsDataURL(file);
     }
@@ -368,8 +368,8 @@ export default function UploadPage() {
             <li><a className="active" style={{ cursor: 'pointer' }}>Upload & Analyze</a></li>
           </ul>
           <div className="up-nav-user">
-            <div className="up-nav-avatar">R</div>
-            <span>researcher</span>
+            <div className="up-nav-avatar">{user?.name?.charAt(0)?.toUpperCase() || 'U'}</div>
+            <span>{user?.name || 'User'}</span>
           </div>
         </nav>
 
