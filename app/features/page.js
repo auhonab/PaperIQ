@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { BookOpen, Eye, MessageSquare, Zap, Shield, Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { usePaperIQ } from '../layout';
 
 const styles = `
   .feat-nav {
@@ -296,6 +297,8 @@ const styles = `
 `;
 
 export default function FeaturesPage() {
+  const { isAuthenticated } = usePaperIQ();
+
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = styles;
@@ -398,7 +401,7 @@ export default function FeaturesPage() {
         <p>
           Join researchers, students, and professionals using PaperIQ to understand complex papers faster.
         </p>
-        <Link href="/register" className="feat-cta-btn">
+        <Link href={isAuthenticated ? '/dashboard' : '/register'} className="feat-cta-btn">
           Start Using PaperIQ <ArrowRight size={18} />
         </Link>
       </div>
