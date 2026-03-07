@@ -337,9 +337,6 @@ export default function DashboardPage() {
                 <div className="db-section-icon"><User size={17} color="#00ffe0" /></div>
                 Profile Command Center
               </div>
-              <button className="db-configure-btn">
-                <Settings size={13} /> Configure Profile
-              </button>
             </div>
 
             <div className="db-profile-grid">
