@@ -45,9 +45,13 @@ export default function RootLayout({ children }) {
     // Image tracking
     const [uploadedImages, setUploadedImages] = useState([]);
     const [imageFileName, setImageFileName] = useState(null);
+
+    // Prevent hydration mismatch for auth-dependent UI
+    const [isMounted, setIsMounted] = useState(false);
     
     // Restore session from localStorage on mount
     useEffect(() => {
+        setIsMounted(true);
         if (typeof window !== 'undefined') {
             const savedUser = localStorage.getItem('paperiq_user');
             if (savedUser) {
@@ -446,7 +450,7 @@ export default function RootLayout({ children }) {
                                 gap: '12px',
                                 alignItems: 'center',
                             }}>
-                                {!isAuthenticated ? (
+                                {!isMounted ? null : !isAuthenticated ? (
                                     <>
                                         <Link 
                                             href="/login" 

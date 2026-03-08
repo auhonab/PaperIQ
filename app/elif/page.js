@@ -326,6 +326,7 @@ export default function ElifPage() {
       }
 
       setResults(data);
+      setError(null);
       cacheElifResults(fileName, data, targetLevel);
       incrementElifAnalysis();
     } catch (err) {
@@ -380,7 +381,7 @@ export default function ElifPage() {
   if (!pdfBase64) {
     return (
       <>
-        <style>{styles}</style>
+        <style dangerouslySetInnerHTML={{ __html: styles }} />
         <div className="elif-root">
           <div className="elif-no-paper">
             <BookOpen size={48} color="#6b7280" />
@@ -393,7 +394,7 @@ export default function ElifPage() {
 
   return (
     <>
-      <style>{styles}</style>
+      <style dangerouslySetInnerHTML={{ __html: styles }} />
       <div className="elif-root">
 
         {/* NAV */}
@@ -441,7 +442,7 @@ export default function ElifPage() {
           )}
 
           {/* ERROR */}
-          {error && (
+          {error && !results && (
             <div className="elif-error">
               <AlertTriangle size={32} color="#ef4444" />
               <h3>Analysis Failed</h3>

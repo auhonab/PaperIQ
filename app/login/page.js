@@ -272,7 +272,7 @@ export default function LoginPage() {
 
   return (
     <>
-      <style>{styles}</style>
+      <style dangerouslySetInnerHTML={{ __html: styles }} />
       <div className="login-root">
 
         {/* NAV */}

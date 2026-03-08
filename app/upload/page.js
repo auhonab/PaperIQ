@@ -352,7 +352,7 @@ export default function UploadPage() {
 
   return (
     <>
-      <style>{styles}</style>
+      <style dangerouslySetInnerHTML={{ __html: styles }} />
       <div className="up-root">
 
         {/* NAV */}

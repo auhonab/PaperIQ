@@ -4,11 +4,7 @@ import { useEffect } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { usePaperIQ } from '../layout';
 
-// Inject Google Font for monospace display headings
-const fontLink = document.createElement("link");
-fontLink.href = "https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=DM+Sans:wght@300;400;500;600&display=swap";
-fontLink.rel = "stylesheet";
-document.head.appendChild(fontLink);
+// Font injection is handled inside the component via useEffect
 
 const styles = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -208,7 +204,17 @@ const styles = `
 
 export default function WelcomePage() {
   const { isAuthenticated } = usePaperIQ();
-  
+
+  useEffect(() => {
+    // Inject Google Font
+    if (!document.querySelector('link[href*="Share+Tech+Mono"]')) {
+      const fontLink = document.createElement('link');
+      fontLink.href = 'https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=DM+Sans:wght@300;400;500;600&display=swap';
+      fontLink.rel = 'stylesheet';
+      document.head.appendChild(fontLink);
+    }
+  }, []);
+
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = styles;

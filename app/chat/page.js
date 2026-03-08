@@ -362,7 +362,7 @@ export default function ChatPage() {
   if (!pdfBase64 && !imageBase64) {
     return (
       <>
-        <style>{styles}</style>
+        <style dangerouslySetInnerHTML={{ __html: styles }} />
         <div className="chat-root">
           <nav className="chat-nav">
             <a className="chat-nav-logo" href="#">
@@ -397,7 +397,7 @@ export default function ChatPage() {
 
   return (
     <>
-      <style>{styles}</style>
+      <style dangerouslySetInnerHTML={{ __html: styles }} />
       <div className="chat-root">
 
         {/* NAV */}

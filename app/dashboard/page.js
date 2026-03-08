@@ -307,7 +307,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <style>{styles}</style>
+      <style dangerouslySetInnerHTML={{ __html: styles }} />
       <div className="db-root">
         <div className="db-body">
 

@@ -460,7 +460,7 @@ export default function ScholarSightPage() {
 
   return (
     <>
-      <style>{styles}</style>
+      <style dangerouslySetInnerHTML={{ __html: styles }} />
       <div className="ss-root">
 
         {/* NAV */}
